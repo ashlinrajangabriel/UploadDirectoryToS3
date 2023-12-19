@@ -5,13 +5,13 @@ from pathlib import Path
 import hashlib
 from datetime import datetime
 
-
 class S3Sync:
-    def __init__(self, bucket, key_prefix, log_file_key):
+    def __init__(self, bucket, key_prefix, log_file_key, username):
         self.s3 = boto3.client('s3')
         self.bucket = bucket
         self.key_prefix = key_prefix
         self.log_file_key = log_file_key
+        self.username = username
         self.excluded_extensions = {'.csv', '.xlsx', '.xls', '.parquet'}
 
     def upload_directory(self, local_directory):
@@ -27,8 +27,10 @@ class S3Sync:
                     print(f"Uploading {s3_path} to {self.bucket}")
                     self.s3.upload_file(local_path, self.bucket, s3_path)
 
-                    log_entries.append(f"{datetime.now()}, {filename}, {local_path}, {file_hash}\n")
+                    log_entry = f"{datetime.now()}, {self.username}, {filename}, {local_path}, {file_hash}\n"
+                    log_entries.append(log_entry)
         self._write_log_to_s3(log_entries)
+
 
     def _calculate_file_md5(self, filename):
         hash_md5 = hashlib.md5()
@@ -83,14 +85,14 @@ def clear_outputs_in_directory(directory):
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) != 5:
-        print("Usage: python script.py <action> <local_directory> <s3_bucket> <s3_key>")
+    if len(sys.argv) != 6:
+        print("Usage: python script.py <action> <username> <local_directory> <s3_bucket> <s3_key>")
         sys.exit(1)
 
-    action, local_directory, bucket, key = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+    action, username, local_directory, bucket, key = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
     log_file_key = 'upload_log.txt'
 
-    sync = S3Sync(bucket, key, log_file_key)
+    sync = S3Sync(bucket, key, log_file_key, username)
 
     if action == 'upload':
         clear_outputs_in_directory(local_directory)
